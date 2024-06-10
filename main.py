@@ -35,7 +35,6 @@ AppHandler.app.register_blueprint(basketBlueprint, url_prefix="/web/basket")
 
 
 def main():
-    
     AppHandler.app.run(host="0.0.0.0", port=2000, debug=True)
 
 

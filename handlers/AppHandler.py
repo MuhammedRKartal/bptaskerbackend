@@ -46,7 +46,6 @@ class AppHandler:
                     "host": host,
                     "database": database
                 }
-                print(config)
                 AppHandler.connection = mariadb.connect(**config)
                 print("CONNECTION MADE")
             except mariadb.Error as e:

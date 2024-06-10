@@ -268,24 +268,17 @@ class UsersHandler:
 
     @classmethod
     def register(cls, request):
-        print("Register endpoint hit")
         data = request.json
         username = data.get("username")
         password = data.get("password")
         email = data.get("email")
 
         headers = request.headers
-        print("Headers:", headers)
-        # if not headers["auth_token"]:
-        #     return jsonify({"error": "Invalid auth token"}), 403
-        # auth = headers["auth_token"]
 
         if not username or not password or not email:
             print("Missing username, password, or email")
             return jsonify({"error": "Missing username, password, or email"}), 400
-        # if not auth or auth != auth_token:
-        #     print('Invalid auth token')
-        #     return jsonify({"error": "Invalid auth token"}), 403
+
         disallowed_words = [
             word
             for word in AppHandler.banned_username_words
@@ -310,12 +303,26 @@ class UsersHandler:
             cursor = connection.cursor()
 
             # Check if a user with the provided email already exists
-            check_user_query = "SELECT email FROM users WHERE email = %s"
+            check_user_query = "SELECT email FROM users WHERE email = %s AND verified = 1"
+
             cursor.execute(check_user_query, (email,))
             user = cursor.fetchone()
 
             if user:
                 return jsonify({"error": "User with this email already exists"}), 400
+            else:
+                    delete_users_query = """
+                    DELETE FROM users
+                    WHERE email = %s
+                    """
+                    delete_user_registration_query = """
+                    DELETE FROM user_registration
+                    WHERE email = %s
+                    """
+                    cursor.execute(delete_users_query, (email,))
+                    cursor.execute(delete_user_registration_query, (email,))
+
+                    connection.commit()
 
             # ... (rest of your code)
 
@@ -408,9 +415,10 @@ class UsersHandler:
 
                 # Query to check if the email and verification_code match, regardless of the code's age
                 verification_query = """
-                SELECT password FROM user_registration
+                SELECT verification_code FROM user_registration
                 WHERE email = %s AND verification_code = %s
                 """
+
                 cursor.execute(verification_query, (email, verification_code))
                 record = cursor.fetchone()
 
@@ -419,18 +427,24 @@ class UsersHandler:
                         jsonify({"error": "Your verification code is incorrect."}),
                         400,
                     )
-                print(verification_code)
-                print("D" + record[0])
+
                 # Query to check if the verification_code is not older than 3 minutes
                 expiration_query = """
                 SELECT password FROM user_registration
                 WHERE email = %s AND verification_code = %s
-                AND created_at >= NOW() - INTERVAL 3 MINUTE
+                AND created_at >= NOW() - INTERVAL 1 MINUTE
                 """
                 cursor.execute(expiration_query, (email, verification_code))
                 record = cursor.fetchone()
 
                 if not record:
+                    delete_query = """
+                    DELETE FROM user_registration 
+                    WHERE email = %s AND verification_code = %s
+                    """
+                    cursor.execute(delete_query, (email, verification_code))
+                    connection.commit()
+
                     return jsonify({"error": "Your verification code is expired."}), 400
 
                 password = record[0]

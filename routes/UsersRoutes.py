@@ -13,7 +13,7 @@ def delete_user():
 
 
 @AppHandler.app.route("/register", methods=["POST"])
-@limiter.limit("2/minute")
+@limiter.limit("20/minute")
 def register():
     return UsersHandler.register(request)
 
